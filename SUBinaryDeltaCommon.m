@@ -38,12 +38,30 @@ NSString *pathRelativeToDirectory(NSString *directory, NSString *path)
     return path;
 }
 
+NSString *stringWithFileSystemRepresentation(const char *input)
+{
+	return [[NSFileManager defaultManager] stringWithFileSystemRepresentation:input length:strlen(input)];
+}
+
 NSString *temporaryFilename(NSString *base)
 {
-    NSString *template = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.XXXXXXXXXX", base]];
-    char buffer[MAXPATHLEN];
-    strcpy(buffer, [template fileSystemRepresentation]);
-    return [NSString stringWithUTF8String:mktemp(buffer)];
+	NSString *template = [NSTemporaryDirectory() stringByAppendingPathComponent:[NSString stringWithFormat:@"%@.XXXXXXXXXX", base]];
+	NSMutableData *data = [NSMutableData data];
+	[data appendBytes:template.fileSystemRepresentation length:strlen(template.fileSystemRepresentation) + 1];
+
+	char *buffer = data.mutableBytes;
+	int fd = mkstemp(buffer);
+	if (fd == -1) {
+		perror("mkstemp");
+		return nil;
+	}
+
+	if (close(fd) != 0) {
+		perror("close");
+		return nil;
+	}
+
+	return stringWithFileSystemRepresentation(buffer);
 }
 
 static void _hashOfBuffer(unsigned char *hash, const char* buffer, size_t bufferLength)
